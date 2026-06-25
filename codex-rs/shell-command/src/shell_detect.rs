@@ -1,7 +1,35 @@
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use serde::Deserialize;
 use serde::Serialize;
+
+static SHELL_OVERRIDE: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+/// Read shell_override from config.toml and store it in a OnceLock.
+/// If CODEX_HOME is not set, defaults to ~/.codex/config.toml.
+fn init_shell_override_once() {
+    let _ = SHELL_OVERRIDE.get_or_init(|| {
+        let config_path = get_codex_config_path()?;
+        let content = std::fs::read_to_string(&config_path).ok()?;
+        let toml_val: toml::Value = content.parse().ok()?;
+        let shell_str = toml_val.get("shell_override")?.as_str()?;
+        let path = PathBuf::from(shell_str);
+        file_exists(&path)
+    });
+}
+
+fn get_codex_config_path() -> Option<PathBuf> {
+    match std::env::var("CODEX_HOME").ok() {
+        Some(home) if !home.is_empty() => Some(PathBuf::from(home).join("config.toml")),
+        _ => {
+            let home = std::env::var("HOME")
+                .or_else(|_| std::env::var("USERPROFILE"))
+                .ok()?;
+            Some(PathBuf::from(home).join(".codex/config.toml"))
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum ShellType {
@@ -273,6 +301,12 @@ pub fn default_user_shell() -> DetectedShell {
 }
 
 pub fn default_user_shell_from_path(user_shell_path: Option<PathBuf>) -> DetectedShell {
+    // Allow override via shell_override in config.toml on any platform.
+    init_shell_override_once();
+    if let Some(shell_path) = SHELL_OVERRIDE.get().and_then(|o| o.as_ref()) {
+        return get_shell_by_model_provided_path(shell_path);
+    }
+
     if cfg!(windows) {
         get_shell(ShellType::PowerShell, /*path*/ None).unwrap_or_else(ultimate_fallback_shell)
     } else {

@@ -80,6 +80,7 @@ use codex_tools::ToolEnvironmentMode;
 use codex_tools::ToolExecutor;
 use codex_tools::ToolName;
 use codex_tools::ToolSearchInfo;
+use std::sync::OnceLock;
 use codex_tools::ToolSpec;
 use codex_tools::UnifiedExecShellMode;
 use codex_tools::can_request_original_image_detail;
@@ -248,7 +249,7 @@ fn build_model_visible_specs_and_registry(
         if !seen_tool_names.insert(tool_name.clone()) {
             continue;
         }
-        let exposure = runtime.exposure();
+        let exposure = resolve_forced_exposure(&runtime.exposure(), &tool_name);
         if exposure.is_direct() && !is_hidden_by_code_mode_only(turn_context, &tool_name, exposure)
         {
             let spec = runtime.spec();
@@ -794,6 +795,14 @@ fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, planned_tools: &mut
             include_environment_id,
         }));
     }
+
+    // Hashline file tools (always available when environment exists)
+    if environment_mode.has_environment() {
+        planned_tools.add(crate::tools::handlers::HashlineReadHandler);
+        planned_tools.add(crate::tools::handlers::HashlineWriteHandler);
+        planned_tools.add(crate::tools::handlers::HashlinePatchHandler);
+        planned_tools.add(crate::tools::handlers::HashlineGrepHandler);
+    }
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -1140,6 +1149,51 @@ fn code_mode_namespace_name<'a>(
         .map(|namespace_description| namespace_description.name.as_str())
 }
 
+/// Override `Deferred` exposure based on `force_expose_tools` in config.toml.
+/// `*` = expose all, `name1,name2` = expose specific tools.
+fn resolve_forced_exposure(exposure: &ToolExposure, tool_name: &ToolName) -> ToolExposure {
+    resolve_forced_exposure_value(exposure, tool_name, get_force_expose_tools_from_config())
+}
+
+/// Get the force_expose_tools value from config.toml (cached).
+fn get_force_expose_tools_from_config() -> Option<String> {
+    FORCE_EXPOSE_TOOLS.get_or_init(|| {
+        let config_path = crate::config::find_codex_home()
+            .ok()
+            .map(|p| p.join("config.toml").to_path_buf())?;
+        let content = std::fs::read_to_string(&config_path).ok()?;
+        let toml_val: toml::Value = content.parse().ok()?;
+        toml_val.get("force_expose_tools")?.as_str().map(|s| s.to_string())
+    }).clone()
+}
+
+pub(crate) fn resolve_forced_exposure_value(exposure: &ToolExposure, tool_name: &ToolName, force_list: Option<String>) -> ToolExposure {
+    if *exposure != ToolExposure::Deferred {
+        return *exposure;
+    }
+    match force_list.as_deref() {
+        Some("*") => ToolExposure::Direct,
+        Some(list) if list.split(',').any(|t| t.trim() == tool_name.to_string()) => ToolExposure::Direct,
+        _ => *exposure,
+    }
+}
+
+static FORCE_EXPOSE_TOOLS: OnceLock<Option<String>> = OnceLock::new();
+
+#[cfg(test)]
+pub(crate) fn set_force_expose_tools_for_test(value: Option<&str>) {
+    let _ = FORCE_EXPOSE_TOOLS.set(value.map(|s| s.to_string()));
+}
+
+#[cfg(test)]
+pub(crate) fn reset_force_expose_tools_for_test() {
+    // OnceLock is intentionally not resettable; each test that needs
+    // isolation calls set_force_expose_tools_for_test before the
+    // affected function. Tests without explicit setup must not rely
+    // on side-effects from other tests.
+}
+
 #[cfg(test)]
 #[path = "spec_plan_tests.rs"]
 mod tests;
+
