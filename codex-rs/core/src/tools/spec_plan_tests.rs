@@ -1725,3 +1725,63 @@ async fn hosted_tools_follow_provider_auth_model_and_config_gates() {
     .await;
     unsupported_provider.assert_visible_lacks(&["web_search"]);
 }
+
+#[test]
+fn test_force_expose_tools_wildcard() {
+    let exposure = ToolExposure::Deferred;
+    let tool_name = ToolName::new("hashline_read");
+    let result = crate::tools::spec_plan::resolve_forced_exposure_value(
+        &exposure,
+        &tool_name,
+        Some("*".to_string()),
+    );
+    assert_eq!(result, ToolExposure::Direct);
+}
+
+#[test]
+fn test_force_expose_tools_specific_match() {
+    let exposure = ToolExposure::Deferred;
+    let tool_name = ToolName::new("hashline_patch");
+    let result = crate::tools::spec_plan::resolve_forced_exposure_value(
+        &exposure,
+        &tool_name,
+        Some("hashline_read,hashline_patch,hashline_write".to_string()),
+    );
+    assert_eq!(result, ToolExposure::Direct);
+}
+
+#[test]
+fn test_force_expose_tools_no_match() {
+    let exposure = ToolExposure::Deferred;
+    let tool_name = ToolName::new("hashline_read");
+    let result = crate::tools::spec_plan::resolve_forced_exposure_value(
+        &exposure,
+        &tool_name,
+        Some("hashline_write,hashline_patch".to_string()),
+    );
+    assert_eq!(result, ToolExposure::Deferred);
+}
+
+#[test]
+fn test_force_expose_tools_none() {
+    let exposure = ToolExposure::Deferred;
+    let tool_name = ToolName::new("hashline_read");
+    let result = crate::tools::spec_plan::resolve_forced_exposure_value(
+        &exposure,
+        &tool_name,
+        None,
+    );
+    assert_eq!(result, ToolExposure::Deferred);
+}
+
+#[test]
+fn test_force_expose_tools_non_deferred_unchanged() {
+    let exposure = ToolExposure::Direct;
+    let tool_name = ToolName::new("hashline_read");
+    let result = crate::tools::spec_plan::resolve_forced_exposure_value(
+        &exposure,
+        &tool_name,
+        Some("*".to_string()),
+    );
+    assert_eq!(result, ToolExposure::Direct);
+}

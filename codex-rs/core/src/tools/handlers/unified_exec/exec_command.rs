@@ -83,10 +83,12 @@ impl ToolExecutor<ToolInvocation> for ExecCommandHandler {
     }
 
     fn spec(&self) -> ToolSpec {
+        let shell_type = crate::shell::default_user_shell().shell_type;
         create_exec_command_tool_with_environment_id(
             CommandToolOptions {
                 allow_login_shell: self.options.allow_login_shell,
                 exec_permission_approvals_enabled: self.options.exec_permission_approvals_enabled,
+                shell_type: Some(shell_type),
             },
             self.options.include_environment_id,
             self.options.include_shell_parameter,

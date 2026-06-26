@@ -1,3 +1,4 @@
+use crate::shell::ShellType;
 use codex_tools::JsonSchema;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolSpec;
@@ -9,6 +10,8 @@ use std::collections::BTreeMap;
 pub struct CommandToolOptions {
     pub allow_login_shell: bool,
     pub exec_permission_approvals_enabled: bool,
+    /// Hint for the shell type in use. `None` means fall back to OS detection.
+    pub shell_type: Option<ShellType>,
 }
 
 #[cfg(test)]
@@ -87,14 +90,17 @@ pub(crate) fn create_exec_command_tool_with_environment_id(
 
     ToolSpec::Function(ResponsesApiTool {
         name: "exec_command".to_string(),
-        description: if cfg!(windows) {
-            format!(
-                "Runs a command in a PTY, returning output or a session ID for ongoing interaction.\n\n{}",
-                windows_shell_guidance()
-            )
-        } else {
-            "Runs a command in a PTY, returning output or a session ID for ongoing interaction."
-                .to_string()
+        description: {
+            let shell_g = shell_guidance(&options);
+            if shell_g.contains("Windows") {
+                format!(
+                    "Runs a command in a PTY, returning output or a session ID for ongoing interaction.\n\n{}",
+                    shell_g
+                )
+            } else {
+                "Runs a command in a PTY, returning output or a session ID for ongoing interaction."
+                    .to_string()
+            }
         },
         strict: false,
         defer_loading: None,
@@ -185,7 +191,9 @@ pub fn create_shell_command_tool(options: CommandToolOptions) -> ToolSpec {
         options.exec_permission_approvals_enabled,
     ));
 
-    let description = if cfg!(windows) {
+    let shell_g = shell_guidance(&options);
+    let is_win_shell = shell_g.contains("Windows");
+    let description = if is_win_shell {
         format!(
             r#"Runs a Powershell command (Windows) and returns its output.
 
@@ -199,12 +207,16 @@ Examples of valid command strings:
 - running an inline Python script: "@'\\nprint('Hello, world!')\\n'@ | python -"
 
 {}"#,
-            windows_shell_guidance()
+            shell_g
         )
     } else {
-        r#"Runs a shell command and returns its output.
-- Always set the `workdir` param when using the shell_command function. Do not use `cd` unless absolutely necessary."#
-            .to_string()
+        format!(
+            r#"Runs a shell command and returns its output.
+- Always set the `workdir` param when using the shell_command function. Do not use `cd` unless absolutely necessary.
+
+{}"#,
+            shell_g
+        )
     };
 
     ToolSpec::Function(ResponsesApiTool {
@@ -399,11 +411,38 @@ fn file_system_permissions_schema() -> JsonSchema {
     schema
 }
 
-fn windows_shell_guidance() -> &'static str {
+fn is_powershell_like(shell_type: ShellType) -> bool {
+    matches!(shell_type, ShellType::PowerShell | ShellType::Cmd)
+}
+
+fn shell_guidance(options: &CommandToolOptions) -> String {
+    let is_win_shell = match options.shell_type {
+        Some(st) => is_powershell_like(st),
+        None => cfg!(windows),
+    };
+    if is_win_shell {
+        windows_shell_guidance_text()
+    } else {
+        unix_shell_guidance_text()
+    }
+}
+
+fn windows_shell_guidance_text() -> String {
     r#"Windows safety rules:
 - Do not compose destructive filesystem commands across shells. Do not enumerate paths in PowerShell and then pass them to `cmd /c`, batch builtins, or another shell for deletion or moving. Use one shell end-to-end, prefer native PowerShell cmdlets such as `Remove-Item` / `Move-Item` with `-LiteralPath`, and avoid string-built shell commands for file operations.
 - Before any recursive delete or move on Windows, verify the resolved absolute target paths stay within the intended workspace or explicitly named target directory. Never issue a recursive delete or move against a computed path if the final target has not been checked.
-- When using `Start-Process` to launch a background helper or service, pass `-WindowStyle Hidden` unless the user explicitly asked for a visible interactive window. Use visible windows only for interactive tools the user needs to see or control."#
+- When using `Start-Process` to launch a background helper or service, pass `-WindowStyle Hidden` unless the user explicitly asked for a visible interactive window. Use visible windows only for interactive tools the user needs to see or control.
+- Do not use shell commands (`Get-Content`, `Set-Content`, `Out-File`, `Select-String`, `Get-ChildItem`, `cat`, `echo >`, `grep`, `sed`, `ls`, `find`, `head`, `tail`) to read, write, or search file contents. Use the dedicated `read`, `write`, `patch`, and `grep` tools instead — they avoid shell quoting and path-resolution pitfalls."#
+        .to_string()
+}
+
+fn unix_shell_guidance_text() -> String {
+    r#"Unix shell safety rules:
+- Do not compose destructive filesystem commands across shells. Use one shell end-to-end for file operations.
+- Before any recursive delete or move, verify the resolved absolute target paths stay within the intended workspace or explicitly named target directory. Never issue a recursive delete or move against a computed path if the final target has not been checked.
+- Prefer quoting paths and using `--` to separate options from arguments to avoid glob expansion surprises.
+- Do not use shell commands (`cat`, `echo >`, `grep`, `sed`, `ls`, `find`, `head`, `tail`) to read, write, or search file contents. Use the dedicated `read`, `write`, `patch`, and `grep` tools instead — they avoid shell quoting and path-resolution pitfalls."#
+        .to_string()
 }
 
 #[cfg(test)]
