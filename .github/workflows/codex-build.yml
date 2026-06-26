@@ -1,6 +1,6 @@
 # Build workflow for concertypin/codex-hashline fork.
-# Builds Codex CLI for Linux on push to main or manual dispatch.
-# Windows build is unavailable on fork (V8 prebuilt not available for Windows targets).
+# Builds Codex CLI for Linux (native) and Windows (MSVC, V8 from source)
+# on push to main or manual dispatch.
 
 name: codex-build
 
@@ -61,5 +61,51 @@ jobs:
             if [ -f "$path" ]; then
               size=$(stat --format=%s "$path")
               echo "- \`${bin}\`: $(numfmt --to=iec $size)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+  build-windows:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: codex-rs
+    env:
+      V8_FROM_SOURCE: "1"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --target x86_64-pc-windows-msvc --release \
+            --bin codex --bin codex-responses-api-proxy
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: codex-windows-x86_64-msvc
+          path: |
+            codex-rs/target/x86_64-pc-windows-msvc/release/codex.exe
+            codex-rs/target/x86_64-pc-windows-msvc/release/codex-responses-api-proxy.exe
+          if-no-files-found: error
+
+      - name: Build summary
+        shell: bash
+        run: |
+          echo "## Windows build complete" >> "$GITHUB_STEP_SUMMARY"
+          for bin in codex codex-responses-api-proxy; do
+            path="codex-rs/target/x86_64-pc-windows-msvc/release/${bin}.exe"
+            if [ -f "$path" ]; then
+              size=$(stat --format=%s "$path")
+              echo "- \`${bin}.exe\`: $(numfmt --to=iec $size)" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
