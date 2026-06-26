@@ -1,8 +1,9 @@
 //! Create or overwrite a file.
 
+use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult};
+use codex_tools::JsonToolOutput;
 use std::path::PathBuf;
 use std::sync::Arc;
-use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult, ToolOutput};
 
 pub struct HashlineWriteHandler;
 
@@ -32,11 +33,11 @@ impl CoreToolRuntime for HashlineWriteHandler {
                 .map_err(|e| anyhow::anyhow!("cannot write {}: {e}", args.path))?;
 
             let line_count = args.content.lines().count();
-            Ok(ToolOutput::Custom(serde_json::json!({
+            Ok(Box::new(JsonToolOutput::new(serde_json::json!({
                 "status": "written",
                 "path": args.path,
                 "lines": line_count,
-            })))
+            }))))
         })
     }
 

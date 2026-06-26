@@ -1,9 +1,10 @@
 //! Search files with ripgrep and return hashline-anchored results.
 
 use crate::tools::handlers::hashline;
+use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult};
+use codex_tools::JsonToolOutput;
 use std::path::PathBuf;
 use std::sync::Arc;
-use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult, ToolOutput};
 use tokio::process::Command;
 
 pub struct HashlineGrepHandler;
@@ -97,11 +98,11 @@ impl CoreToolRuntime for HashlineGrepHandler {
                 }
             }
 
-            Ok(ToolOutput::Custom(serde_json::json!({
+            Ok(Box::new(JsonToolOutput::new(serde_json::json!({
                 "matches": results,
                 "total": results.len(),
                 "pattern": args.pattern,
-            })))
+            }))))
         })
     }
 

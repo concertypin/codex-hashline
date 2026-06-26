@@ -1,7 +1,8 @@
 //! Read a file with hashline-anchored line output.
 
 use crate::tools::handlers::hashline;
-use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult, ToolOutput};
+use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult};
+use codex_tools::JsonToolOutput;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -49,11 +50,11 @@ impl CoreToolRuntime for HashlineReadHandler {
                 .map(|i| hashline::format_line(i, lines[i - 1]))
                 .collect();
 
-            Ok(ToolOutput::Custom(serde_json::json!({
+            Ok(Box::new(JsonToolOutput::new(serde_json::json!({
                 "header": hashline::file_header(&path),
                 "lines": anchored,
                 "total_lines": total,
-            })))
+            }))))
         })
     }
 

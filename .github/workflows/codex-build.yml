@@ -1,6 +1,6 @@
 # Build workflow for concertypin/codex-hashline fork.
-# Builds Codex CLI for Linux (native) and Windows (MSVC, V8 from source)
-# on push to main or manual dispatch.
+# Builds Codex CLI for Linux and Windows via GitHub hosted runners.
+# Triggered on push to main/feat branches or manual dispatch.
 
 name: codex-build
 
@@ -67,12 +67,10 @@ jobs:
   build-windows:
     name: Windows (x86_64)
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: codex-rs
-    env:
-      V8_FROM_SOURCE: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:

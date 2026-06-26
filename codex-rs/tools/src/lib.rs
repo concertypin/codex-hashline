@@ -14,7 +14,7 @@ mod tool_call;
 mod tool_config;
 mod tool_definition;
 mod tool_discovery;
-mod tool_executor;
+pub mod tool_executor;
 mod tool_output;
 mod tool_payload;
 mod tool_search;

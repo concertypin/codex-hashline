@@ -1,9 +1,10 @@
 //! Edit files using hash-verified line anchors (hashline patch).
 
 use crate::tools::handlers::hashline;
+use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult};
+use codex_tools::JsonToolOutput;
 use std::path::PathBuf;
 use std::sync::Arc;
-use codex_tools::tool_executor::{CoreToolRuntime, ToolCallResult, ToolOutput};
 
 pub struct HashlinePatchHandler;
 
@@ -211,7 +212,7 @@ impl CoreToolRuntime for HashlinePatchHandler {
             let new_lines: Vec<&str> = new_content.lines().collect();
             let changed = args.edits.len();
 
-            Ok(ToolOutput::Custom(serde_json::json!({
+            Ok(Box::new(JsonToolOutput::new(serde_json::json!({
                 "status": "patched",
                 "path": args.path,
                 "edits_applied": changed,
