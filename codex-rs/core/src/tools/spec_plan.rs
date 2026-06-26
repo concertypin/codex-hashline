@@ -796,13 +796,7 @@ fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, planned_tools: &mut
         }));
     }
 
-    // Hashline file tools (always available when environment exists)
-    if environment_mode.has_environment() {
-        planned_tools.add(crate::tools::handlers::HashlineReadHandler);
-        planned_tools.add(crate::tools::handlers::HashlineWriteHandler);
-        planned_tools.add(crate::tools::handlers::HashlinePatchHandler);
-        planned_tools.add(crate::tools::handlers::HashlineGrepHandler);
-    }
+
 }
 
 #[instrument(level = "trace", skip_all)]
