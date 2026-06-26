@@ -1,6 +1,6 @@
 use crate::FunctionCallError;
 use crate::ToolName;
-use crate::ToolOutput;
+pub use crate::ToolOutput;
 use crate::ToolSearchInfo;
 use crate::ToolSpec;
 use std::future::Future;
@@ -34,9 +34,6 @@ pub trait CoreToolRuntime: Send + Sync {
 
 /// Context passed to tool handlers during `call`.
 pub trait ToolCallContext: Send + Sync {}
-
-// Re-export ToolOutput so it's accessible via codex_tools::tool_executor::ToolOutput
-pub use crate::tool_output::ToolOutput;
 
 /// Controls where a tool is exposed to the model.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
