@@ -138,9 +138,11 @@ impl ToolExecutor<ToolInvocation> for ShellCommandHandler {
     }
 
     fn spec(&self) -> ToolSpec {
+        let shell_type = crate::shell::default_user_shell().shell_type;
         create_shell_command_tool(CommandToolOptions {
             allow_login_shell: self.options.allow_login_shell,
             exec_permission_approvals_enabled: self.options.exec_permission_approvals_enabled,
+            shell_type: Some(shell_type),
         })
     }
 
