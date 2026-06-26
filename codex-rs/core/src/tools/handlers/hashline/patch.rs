@@ -217,7 +217,7 @@ impl CoreToolRuntime for HashlinePatchHandler {
                 "path": args.path,
                 "edits_applied": changed,
                 "total_lines": new_lines.len(),
-            })))
+            }))))
         })
     }
 
