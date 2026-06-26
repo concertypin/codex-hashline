@@ -3,11 +3,6 @@
 //! Each line is tagged with a 2-hex content hash so edits stay stable
 //! across line insertions/deletions.  Format: `LINE:HEX|content`.
 
-pub(crate) mod grep;
-pub(crate) mod patch;
-pub(crate) mod read;
-pub(crate) mod write;
-
 use std::path::Path;
 
 /// Compute a 2-hex content hash for a line.
