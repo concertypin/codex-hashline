@@ -242,6 +242,9 @@ pub struct ConfigToml {
 
     /// Compact prompt used for history compaction.
     pub compact_prompt: Option<String>,
+    /// Override the shell used for exec_command tool.
+    #[serde(default)]
+    pub shell_override: Option<String>,
 
     /// When set, restricts ChatGPT login to one or more workspace identifiers.
     #[serde(default)]

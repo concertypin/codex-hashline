@@ -8,6 +8,13 @@ static SHELL_OVERRIDE: OnceLock<Option<PathBuf>> = OnceLock::new();
 
 /// Read shell_override from config.toml and store it in a OnceLock.
 /// If CODEX_HOME is not set, defaults to ~/.codex/config.toml.
+
+/// Set shell override from ConfigToml (called during config loading).
+/// This takes priority over raw TOML reading in init_shell_override_once.
+pub fn set_shell_override_from_config(path: Option<std::path::PathBuf>) {
+    let _ = SHELL_OVERRIDE.get_or_init(move || path.filter(|p| p.exists()));
+}
+
 fn init_shell_override_once() {
     let _ = SHELL_OVERRIDE.get_or_init(|| {
         let config_path = get_codex_config_path()?;
